@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "circomlibjs": "^0.1.2",
     "@nestjs/axios": "^0.0.8",
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^2.0.1",

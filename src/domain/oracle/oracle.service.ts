@@ -21,6 +21,7 @@ import {
   userInfoType,
   PayPalRequestHeader,
 } from './dto/oracle.dto';
+import { buildEddsa } from 'circomlibjs';
 
 @Injectable()
 export class OracleService {
@@ -36,6 +37,77 @@ export class OracleService {
       error: error,
       error_description: error_description,
     };
+  };
+
+  private stringToBytes(s: string): number[] {
+    const MAX_STRING_LENGTH = 48;
+    const enc = new TextEncoder();
+
+    if (s.length > MAX_STRING_LENGTH)
+      throw new Error('Exceeding max string length');
+
+    s = s.padEnd(MAX_STRING_LENGTH, ' ');
+    return Array.from(enc.encode(s));
+  }
+
+  private numberToBytes(i: number, b: number): number[] {
+    const a: number[] = [];
+    for (let j = 0; j < b; j++) {
+      const q = Math.floor(i / 256);
+      const r = i - q * 256;
+      a.push(r);
+      i = q;
+    }
+    return a;
+  }
+
+  private normalizeInputForHash = (
+    s: string,
+    age: number,
+    ts: number,
+  ): number[] => {
+    // s is a fixed array of 20 numbers
+    // a is a number
+    // the serialized data is s appended with a, resulting in array of 21 numbers
+    const data = this.stringToBytes(s);
+
+    let bytes = this.numberToBytes(age, 4);
+    for (let i = 0; i < 4; i++) {
+      data.push(bytes[i]);
+    }
+
+    bytes = this.numberToBytes(ts, 4);
+    for (let i = 0; i < 4; i++) {
+      data.push(bytes[i]);
+    }
+
+    return data;
+  };
+
+  private generateSignature = async (
+    subsPlanID: string,
+    subsAge: number,
+    timestamp: number,
+  ): Promise<Uint8Array> => {
+    //
+    // running on oracle side:
+    //   get the PII and sign the data
+    //
+    const eddsa = await buildEddsa();
+
+    // oracle's signature keys
+    const prvKey = Buffer.from(
+      '0001020304050607080900010203040506070809000102030405060708090001',
+      'hex',
+    );
+
+    // calculate the sig of the PII
+    const msg = this.normalizeInputForHash(subsPlanID, subsAge, timestamp);
+
+    const signature = eddsa.signPedersen(prvKey, msg);
+    const pSignature = eddsa.packSignature(signature); // this is the signature for the PII
+
+    return pSignature;
   };
 
   private getAccessToken = async (codeToken: string): Promise<string> => {
@@ -150,14 +222,22 @@ export class OracleService {
       );
 
       if (await this.validateSubscriptionData(subscriptionData, userInfo)) {
+        const planId = subscriptionData.plan_id;
+        const subsAge = diffMinutes(
+          new Date(subscriptionData.start_time),
+          new Date(),
+        );
+        const timestamp = getUTCTimestampInSeconds();
+        const signature = await this.generateSignature(
+          planId,
+          subsAge,
+          timestamp,
+        );
         return {
           subsPlanID: subscriptionData.plan_id,
           timestamp: getUTCTimestampInSeconds(),
-          subsAge: diffMinutes(
-            new Date(subscriptionData.start_time),
-            new Date(),
-          ),
-          signature: 'This is a dummy signature',
+          subsAge: subsAge,
+          signature: signature,
         };
       }
     } catch (error) {
