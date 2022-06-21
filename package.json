@@ -30,10 +30,10 @@
     "@types/chai": "^4.3.1",
     "axios-retry": "^3.2.5",
     "chai": "^4.3.6",
+    "ozki-lib": "file:../ozki-toolkit/ozki-lib-1.0.0.tgz",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^6.6.6",
-    "ozki-lib": "github:hololite/ozki-toolkit#main"
+    "rxjs": "^6.6.6"
   },
   "devDependencies": {
     "@nestjs/cli": "^7.6.0",
