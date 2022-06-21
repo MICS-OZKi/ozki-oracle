@@ -6,7 +6,7 @@ export interface oracleSubscriptionOutputDto {
   timestamp: number;
   subsPlanID: string;
   subsAge: number;
-  signature: Uint8Array;
+  signature: Array<any>;
 }
 
 export interface oracleOutputErrorDto {

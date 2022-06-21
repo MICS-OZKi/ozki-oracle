@@ -22,6 +22,8 @@ import {
   PayPalRequestHeader,
 } from './dto/oracle.dto';
 import { buildEddsa } from 'circomlibjs';
+import { assert } from 'chai';
+import { zkutils } from 'ozki-lib';
 
 @Injectable()
 export class OracleService {
@@ -39,56 +41,11 @@ export class OracleService {
     };
   };
 
-  private stringToBytes(s: string): number[] {
-    const MAX_STRING_LENGTH = 48;
-    const enc = new TextEncoder();
-
-    if (s.length > MAX_STRING_LENGTH)
-      throw new Error('Exceeding max string length');
-
-    s = s.padEnd(MAX_STRING_LENGTH, ' ');
-    return Array.from(enc.encode(s));
-  }
-
-  private numberToBytes(i: number, b: number): number[] {
-    const a: number[] = [];
-    for (let j = 0; j < b; j++) {
-      const q = Math.floor(i / 256);
-      const r = i - q * 256;
-      a.push(r);
-      i = q;
-    }
-    return a;
-  }
-
-  private normalizeInputForHash = (
-    s: string,
-    age: number,
-    ts: number,
-  ): number[] => {
-    // s is a fixed array of 20 numbers
-    // a is a number
-    // the serialized data is s appended with a, resulting in array of 21 numbers
-    const data = this.stringToBytes(s);
-
-    let bytes = this.numberToBytes(age, 4);
-    for (let i = 0; i < 4; i++) {
-      data.push(bytes[i]);
-    }
-
-    bytes = this.numberToBytes(ts, 4);
-    for (let i = 0; i < 4; i++) {
-      data.push(bytes[i]);
-    }
-
-    return data;
-  };
-
   private generateSignature = async (
     subsPlanID: string,
     subsAge: number,
     timestamp: number,
-  ): Promise<Uint8Array> => {
+  ): Promise<Array<any>> => {
     //
     // running on oracle side:
     //   get the PII and sign the data
@@ -100,14 +57,21 @@ export class OracleService {
       '0001020304050607080900010203040506070809000102030405060708090001',
       'hex',
     );
+    const pubKey = eddsa.prv2pub(prvKey);
 
     // calculate the sig of the PII
-    const msg = this.normalizeInputForHash(subsPlanID, subsAge, timestamp);
+    const msg = zkutils.normalizeInputForHash(subsPlanID, subsAge, timestamp);
 
     const signature = eddsa.signPedersen(prvKey, msg);
     const pSignature = eddsa.packSignature(signature); // this is the signature for the PII
 
-    return pSignature;
+    // assert (optional)
+    const uSignature = eddsa.unpackSignature(pSignature);
+    assert(eddsa.verifyPedersen(msg, uSignature, pubKey));
+
+    const pSignatureArray = Array.from(pSignature);
+
+    return pSignatureArray;
   };
 
   private getAccessToken = async (codeToken: string): Promise<string> => {
@@ -117,6 +81,7 @@ export class OracleService {
     };
     const bodyString = generateURLEncodedData(oauthData);
 
+    console.log("calling paypal's oauth2 api");
     const response = await sendRequestExternalAPI(
       PayPalOauth2APIURL,
       bodyString,
@@ -181,7 +146,7 @@ export class OracleService {
     ) {
       throw this.handleError(
         'Oracle Error',
-        'Error when retrieving subscription Data.',
+        'Error occured during subscription data retrieval. Check the billing-id.',
       );
     }
 
@@ -192,22 +157,30 @@ export class OracleService {
     subscriptionData: subscriptionDataType,
     userInfo: userInfoType,
   ): Promise<boolean> => {
-    if (
-      checkStatusActive(subscriptionData.status) &&
-      checkPayerID(subscriptionData.subscriber.payer_id, userInfo.payer_id)
-    ) {
-      return true;
+    if (!checkStatusActive(subscriptionData.status)) {
+      throw this.handleError(
+        'Oracle Error',
+        'Subscription is no longer active',
+      );
     }
-    throw this.handleError(
-      'Oracle Error',
-      'Data is invalid or does not fit the requirements',
-    );
+
+    if (!checkPayerID(subscriptionData.subscriber.payer_id, userInfo.payer_id)) {
+      throw this.handleError(
+        'Oracle Error',
+        'The billing-id is not owned by the logged-on user'
+      );
+    }
+    return true;
   };
 
   async getSubscriptionInfo(
     oracleSubscriptionInputData: oracleSubscriptionInputDto,
   ): Promise<oracleSubscriptionOutputDto | oracleOutputErrorDto> {
+    console.log("**** GetSubscriptionInfo started");
+    const t1 = new Date().getTime();
+
     try {
+      console.log("**** getting paypal's access token");
       const access_token = await this.getAccessToken(
         oracleSubscriptionInputData.code,
       );
@@ -216,11 +189,15 @@ export class OracleService {
         Authorization: `Bearer ${access_token}`,
       };
 
+      console.log("**** getting paypal's user info");
       const userInfo = await this.getUserInfo(header);
+
+      console.log("**** getting paypal's subscription detail");
       const subscriptionData = await this.getSubscriptionData(
         oracleSubscriptionInputData.subscriptionID,
       );
 
+      console.log("**** validating subscription status & owner");
       if (await this.validateSubscriptionData(subscriptionData, userInfo)) {
         const planId = subscriptionData.plan_id;
         const subsAge = diffMinutes(
@@ -233,14 +210,20 @@ export class OracleService {
           subsAge,
           timestamp,
         );
+
+        const t2 = new Date().getTime();
+        console.log("**** GetSubscriptionInfo completed in %d ms", t2-t1);
+
         return {
           subsPlanID: subscriptionData.plan_id,
-          timestamp: getUTCTimestampInSeconds(),
+          timestamp: timestamp,
           subsAge: subsAge,
           signature: signature,
         };
       }
-    } catch (error) {
+    }
+    catch (error) {
+      console.log(error);
       return error;
     }
   }

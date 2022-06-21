@@ -1,11 +1,12 @@
 {
-  "name": "ozki oracle",
+  "name": "ozki-oracle",
   "version": "0.0.1",
   "description": "",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "setup": "./bin/setup",
     "prebuild": "rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -21,16 +22,18 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "circomlibjs": "^0.1.2",
     "@nestjs/axios": "^0.0.8",
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^2.0.1",
     "@nestjs/core": "^7.6.15",
     "@nestjs/platform-express": "^7.6.15",
+    "@types/chai": "^4.3.1",
     "axios-retry": "^3.2.5",
+    "chai": "^4.3.6",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
-    "rxjs": "^6.6.6"
+    "rxjs": "^6.6.6",
+    "ozki-lib": "github:hololite/ozki-toolkit#main"
   },
   "devDependencies": {
     "@nestjs/cli": "^7.6.0",
