@@ -19,6 +19,10 @@ const getUTCTimestampInSeconds = () => {
   return Math.floor(new Date().getTime() / 1000);
 };
 
+const diffDays = (startDate: Date, endDate: Date) => {
+  return Math.floor((endDate.getTime() - startDate.getTime()) / (24*60*60000));
+};
+
 const diffMinutes = (startDate: Date, endDate: Date) => {
   return Math.floor((endDate.getTime() - startDate.getTime()) / 60000);
 };
@@ -95,6 +99,7 @@ export {
   encode,
   getUTCTimestampInSeconds,
   diffMinutes,
+  diffDays,
   checkPayerID,
   checkStatusActive,
   generateURLEncodedData,

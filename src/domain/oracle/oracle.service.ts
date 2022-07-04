@@ -8,6 +8,7 @@ import {
   checkPayerID,
   checkStatusActive,
   diffMinutes,
+  diffDays,
   encode,
   generateURLEncodedData,
   getUTCTimestampInSeconds,
@@ -200,7 +201,7 @@ export class OracleService {
       console.log("**** validating subscription status & owner");
       if (await this.validateSubscriptionData(subscriptionData, userInfo)) {
         const planId = subscriptionData.plan_id;
-        const subsAge = diffMinutes(
+        const subsAge = diffDays(
           new Date(subscriptionData.start_time),
           new Date(),
         );
