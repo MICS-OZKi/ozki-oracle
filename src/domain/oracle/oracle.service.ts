@@ -24,7 +24,7 @@ import {
 } from './dto/oracle.dto';
 import { buildEddsa } from 'circomlibjs';
 import { assert } from 'chai';
-import { zkutils } from 'ozki-lib';
+import { ZkUtils } from 'ozki-lib';
 
 @Injectable()
 export class OracleService {
@@ -61,6 +61,7 @@ export class OracleService {
     const pubKey = eddsa.prv2pub(prvKey);
 
     // calculate the sig of the PII
+    const zkutils = new ZkUtils();
     const msg = zkutils.normalizeInputForHash(subsPlanID, subsAge, timestamp);
 
     const signature = eddsa.signPedersen(prvKey, msg);
