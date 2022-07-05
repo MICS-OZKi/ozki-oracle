@@ -2,9 +2,9 @@
   "name": "ozki-oracle",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": "Antony Halim (a-ha@berkeley.edu)",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "setup": "./bin/setup",
     "prebuild": "rimraf dist",
@@ -30,7 +30,7 @@
     "@types/chai": "^4.3.1",
     "axios-retry": "^3.2.5",
     "chai": "^4.3.6",
-    "ozki-lib": "file:../ozki-toolkit/ozki-lib-1.1.7.tgz",
+    "ozki-lib": "file:../ozki-toolkit/ozki-lib-1.1.27.tgz",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.6.6"
