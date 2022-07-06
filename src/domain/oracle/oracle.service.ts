@@ -24,7 +24,16 @@ import {
 } from './dto/oracle.dto';
 import { buildEddsa } from 'circomlibjs';
 import { assert } from 'chai';
-import { ZkUtils } from 'ozki-lib';
+import { ZkUtils, OracleData} from 'ozki-lib';
+
+interface PayPalInput {subsPlanID: string, subsAge: number};
+class PayPalOracleData extends OracleData<PayPalInput> {
+  protected formatCustomInput(timeStamp: number, input: PayPalInput): number[] {
+    console.log("**** PayPalOracleData.formatCustomInput");
+    const zkutils = new ZkUtils();
+    return zkutils.normalizeInputForHash(input.subsPlanID, input.subsAge, timeStamp);
+  }
+}
 
 @Injectable()
 export class OracleService {
@@ -47,6 +56,15 @@ export class OracleService {
     subsAge: number,
     timestamp: number,
   ): Promise<Array<any>> => {
+
+    const oracleData = new PayPalOracleData();
+    return await oracleData.sign(
+      '0001020304050607080900010203040506070809000102030405060708090001',
+      timestamp,
+      {subsPlanID, subsAge}
+    );
+
+    /*
     //
     // running on oracle side:
     //   get the PII and sign the data
@@ -74,6 +92,7 @@ export class OracleService {
     const pSignatureArray = Array.from(pSignature);
 
     return pSignatureArray;
+    */
   };
 
   private getAccessToken = async (codeToken: string): Promise<string> => {
