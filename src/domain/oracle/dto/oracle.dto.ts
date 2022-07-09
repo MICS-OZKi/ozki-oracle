@@ -105,3 +105,12 @@ export interface userInfoType {
 export interface PayPalRequestHeader {
   Authorization: string;
 }
+export interface oracleGoogleInputDto {
+  readonly googleCodeToken: string;
+}
+
+export interface oracleGoogleOutputDto {
+  timestamp: number;
+  emailDomain: string;
+  signature: Array<any>;
+}

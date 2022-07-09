@@ -21,10 +21,17 @@ import {
   subscriptionDataType,
   userInfoType,
   PayPalRequestHeader,
+  oracleGoogleOutputDto,
+  oracleGoogleInputDto,
 } from './dto/oracle.dto';
 import { buildEddsa } from 'circomlibjs';
 import { assert } from 'chai';
-import { ZkUtils, OracleData} from 'ozki-lib';
+import { ZkUtils, OracleData} from 'ozki-toolkit';
+import { OAuth2Client } from 'google-auth-library';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+const client = new OAuth2Client(process.env.GoogleClientID);
 
 interface PayPalInput {subsPlanID: string, subsAge: number};
 class PayPalOracleData extends OracleData<PayPalInput> {
@@ -32,6 +39,15 @@ class PayPalOracleData extends OracleData<PayPalInput> {
     console.log("**** PayPalOracleData.formatCustomInput");
     const zkutils = new ZkUtils();
     return zkutils.normalizeInputForHash(input.subsPlanID, input.subsAge, timeStamp);
+  }
+}
+
+interface LoginInfo {domain: string};
+class GoogleAuthOracleData extends OracleData<LoginInfo> {
+  protected formatCustomInput(timeStamp: number, input: LoginInfo): number[] {
+    console.log("**** GoogleAuthOracleData.formatCustomInput");
+    const zkutils = new ZkUtils();
+    return zkutils.normalizeAuthInputForHash(input.domain, timeStamp);
   }
 }
 
@@ -59,40 +75,22 @@ export class OracleService {
 
     const oracleData = new PayPalOracleData();
     return await oracleData.sign(
-      '0001020304050607080900010203040506070809000102030405060708090001',
+      process.env.OraclePrivateKey,
       timestamp,
       {subsPlanID, subsAge}
     );
+  };
 
-    /*
-    //
-    // running on oracle side:
-    //   get the PII and sign the data
-    //
-    const eddsa = await buildEddsa();
-
-    // oracle's signature keys
-    const prvKey = Buffer.from(
-      '0001020304050607080900010203040506070809000102030405060708090001',
-      'hex',
+  private generateAuthSignature = async (
+    emailDomain: string,
+    timestamp: number,
+  ): Promise<Array<any>> => {
+    const oracleData = new GoogleAuthOracleData();
+    return await oracleData.sign(
+      process.env.OraclePrivateKey,
+      timestamp,
+      {domain: emailDomain}
     );
-    const pubKey = eddsa.prv2pub(prvKey);
-
-    // calculate the sig of the PII
-    const zkutils = new ZkUtils();
-    const msg = zkutils.normalizeInputForHash(subsPlanID, subsAge, timestamp);
-
-    const signature = eddsa.signPedersen(prvKey, msg);
-    const pSignature = eddsa.packSignature(signature); // this is the signature for the PII
-
-    // assert (optional)
-    const uSignature = eddsa.unpackSignature(pSignature);
-    assert(eddsa.verifyPedersen(msg, uSignature, pubKey));
-
-    const pSignatureArray = Array.from(pSignature);
-
-    return pSignatureArray;
-    */
   };
 
   private getAccessToken = async (codeToken: string): Promise<string> => {
@@ -246,6 +244,51 @@ export class OracleService {
     catch (error) {
       console.log(error);
       return error;
+    }
+  }
+
+  private getDomain = async (email: string): Promise<string> => {
+    return email.split('@')[1];
+  };
+
+  private async verifyGoogleCodeToken(googleCodeToken: string) {
+    const ticket = await client.verifyIdToken({
+      idToken: googleCodeToken,
+      audience: process.env.GoogleClientID,
+    });
+    const payload = ticket.getPayload();
+    const email = payload['email'];
+    const domain = await this.getDomain(email);
+    return domain;
+  }
+
+  async verifyGoogleCredential(
+    oracleGoogleInputData: oracleGoogleInputDto,
+  ): Promise<oracleGoogleOutputDto | oracleOutputErrorDto> {
+    try {
+      const emailDomain = await this.verifyGoogleCodeToken(
+        oracleGoogleInputData.googleCodeToken,
+      );
+      if (emailDomain) {
+        const timestamp = getUTCTimestampInSeconds();
+
+        const signature = await this.generateAuthSignature(
+          emailDomain,
+          timestamp,
+        );
+
+        return {
+          timestamp: timestamp,
+          emailDomain: emailDomain,
+          signature: signature,
+        };
+      }
+    } catch (error) {
+      console.log(error);
+      throw this.handleError(
+        'Oracle Error',
+        'Data is invalid or does not fit the requirements',
+      );
     }
   }
 }

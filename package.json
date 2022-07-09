@@ -30,7 +30,8 @@
     "@types/chai": "^4.3.1",
     "axios-retry": "^3.2.5",
     "chai": "^4.3.6",
-    "ozki-lib": "file:../ozki-toolkit/ozki-lib-1.1.29.tgz",
+    "google-auth-library": "^8.1.0", 
+    "ozki-toolkit": "file:../ozki-toolkit/ozki-toolkit-1.2.0.tgz",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.6.6"
