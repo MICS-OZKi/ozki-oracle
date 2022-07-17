@@ -31,6 +31,7 @@ import { OAuth2Client } from 'google-auth-library';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+// use the google auth lib class
 const client = new OAuth2Client(process.env.GoogleClientID);
 
 interface PayPalInput {subsPlanID: string, subsAge: number};
@@ -195,7 +196,7 @@ export class OracleService {
   async getSubscriptionInfo(
     oracleSubscriptionInputData: oracleSubscriptionInputDto,
   ): Promise<oracleSubscriptionOutputDto | oracleOutputErrorDto> {
-    console.log("**** GetSubscriptionInfo started");
+    console.log(">> GetSubscriptionInfo");
     const t1 = new Date().getTime();
 
     try {
@@ -231,7 +232,7 @@ export class OracleService {
         );
 
         const t2 = new Date().getTime();
-        console.log("**** GetSubscriptionInfo completed in %d ms", t2-t1);
+        console.log("<< GetSubscriptionInfo: completed in %d ms", t2-t1);
 
         return {
           subsPlanID: subscriptionData.plan_id,
@@ -252,12 +253,20 @@ export class OracleService {
   };
 
   private async verifyGoogleCodeToken(googleCodeToken: string) {
+    // call google to verify the code token
+    console.log("#### calling google's verifyIdToken");
     const ticket = await client.verifyIdToken({
       idToken: googleCodeToken,
       audience: process.env.GoogleClientID,
     });
+
+    // get the payload
+    console.log("#### calling google's getPayload");
     const payload = ticket.getPayload();
+
+    // we are interested in email only
     const email = payload['email'];
+    console.log("#### email=%s", email);
     const domain = await this.getDomain(email);
     return domain;
   }
@@ -265,6 +274,8 @@ export class OracleService {
   async verifyGoogleCredential(
     oracleGoogleInputData: oracleGoogleInputDto,
   ): Promise<oracleGoogleOutputDto | oracleOutputErrorDto> {
+    console.log(">> verifyGoogleCredential");
+    const t1 = new Date().getTime();
     try {
       const emailDomain = await this.verifyGoogleCodeToken(
         oracleGoogleInputData.googleCodeToken,
@@ -277,6 +288,8 @@ export class OracleService {
           timestamp,
         );
 
+        const t2 = new Date().getTime();
+        console.log("<< verifyGoogleCredential: completed in %d ms", t2-t1);
         return {
           timestamp: timestamp,
           emailDomain: emailDomain,
